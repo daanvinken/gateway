@@ -70,6 +70,10 @@ const (
 	// PolicyReasonDeprecatedField is used with the "Warning" condition when the policy
 	// uses deprecated fields that should be migrated to newer alternatives.
 	PolicyReasonDeprecatedField gwapiv1.PolicyConditionReason = "DeprecatedField"
+
+	// PolicyReasonFeatureDisabled is used with the "Warning" condition when the policy
+	// references a feature that requires explicit opt-in via the EnvoyGateway configuration.
+	PolicyReasonFeatureDisabled gwapiv1.PolicyConditionReason = "FeatureDisabled"
 )
 
 // GroupVersionKind unambiguously identifies a Kind.
