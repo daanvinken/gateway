@@ -106,6 +106,10 @@ type Translator struct {
 	// This could be enabled by Envoy Gateway configuration.
 	SDSSecretRefEnabled bool
 
+	// AllowExpiredClientCertEnabled is true when the cluster admin has opted in
+	// to allowing ClientTrafficPolicy authors to accept expired client certificates.
+	AllowExpiredClientCertEnabled bool
+
 	// ExtensionGroupKinds stores the group/kind for all resources
 	// introduced by an Extension so that the translator can
 	// store referenced resources in the IR for later use.

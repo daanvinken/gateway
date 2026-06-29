@@ -341,6 +341,13 @@ type ExtensionAPISettings struct {
 	EnableLua bool `json:"enableLua,omitempty"`
 	// EnableSDSSecretRef enables read SDS(Secret Discovery Service) settings from a secret(with type gateway.envoyproxy.io/sds).
 	EnableSDSSecretRef bool `json:"enableSDSSecretRef"`
+	// EnableAllowExpiredClientCert enables the allowExpiredCertificate field in
+	// ClientTrafficPolicy's tls.clientValidation. When false (the default),
+	// the field is ignored to prevent policy authors from weakening certificate
+	// validation without cluster-admin approval.
+	//
+	// +optional
+	EnableAllowExpiredClientCert bool `json:"enableAllowExpiredClientCert,omitempty"`
 }
 
 // EnvoyGatewayProvider defines the desired configuration of a provider.

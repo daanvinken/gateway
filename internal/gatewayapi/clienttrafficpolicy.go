@@ -193,6 +193,14 @@ func (t *Translator) ProcessClientTrafficPolicies(
 				if deprecatedFields := deprecatedFieldsUsedInClientTrafficPolicy(policy); len(deprecatedFields) > 0 {
 					status.SetDeprecatedFieldsWarningForPolicyAncestor(&policy.Status, &ancestorRef, t.GatewayControllerName, policy.Generation, deprecatedFields)
 				}
+
+				// Warn if allowExpiredCertificate is set but the feature gate is disabled
+				if !t.AllowExpiredClientCertEnabled && allowExpiredCertificateRequested(policy) {
+					status.SetWarningForPolicyAncestor(&policy.Status, &ancestorRef, t.GatewayControllerName,
+						egv1a1.PolicyReasonFeatureDisabled,
+						"allowExpiredCertificate is set but ignored: extensionApis.enableAllowExpiredClientCert is not enabled in the EnvoyGateway configuration",
+						policy.Generation)
+				}
 			}
 		}
 	}
@@ -335,6 +343,14 @@ func (t *Translator) ProcessClientTrafficPolicies(
 				// Check for deprecated fields and set warning if any are found
 				if deprecatedFields := deprecatedFieldsUsedInClientTrafficPolicy(policy); len(deprecatedFields) > 0 {
 					status.SetDeprecatedFieldsWarningForPolicyAncestor(&policy.Status, &ancestorRef, t.GatewayControllerName, policy.Generation, deprecatedFields)
+				}
+
+				// Warn if allowExpiredCertificate is set but the feature gate is disabled
+				if !t.AllowExpiredClientCertEnabled && allowExpiredCertificateRequested(policy) {
+					status.SetWarningForPolicyAncestor(&policy.Status, &ancestorRef, t.GatewayControllerName,
+						egv1a1.PolicyReasonFeatureDisabled,
+						"allowExpiredCertificate is set but ignored: extensionApis.enableAllowExpiredClientCert is not enabled in the EnvoyGateway configuration",
+						policy.Generation)
 				}
 			}
 		}
@@ -1003,7 +1019,7 @@ func (t *Translator) buildListenerTLSParameters(
 		}
 
 		// Apply additional validation context fields (SPKI/cert hashes and SAN matchers) regardless of CA presence.
-		setTLSClientValidationContext(tlsParams.ClientValidation, irTLSConfig)
+		setTLSClientValidationContext(tlsParams.ClientValidation, irTLSConfig, t.AllowExpiredClientCertEnabled)
 
 		irCrl := &ir.TLSCrl{
 			Name: irTLSCrlName(policy.Namespace, policy.Name),
@@ -1083,12 +1099,15 @@ func (t *Translator) validateAndGetDataAtKeyInRef(
 	}
 }
 
-func setTLSClientValidationContext(tlsClientValidation *egv1a1.ClientValidationContext, irTLSConfig *ir.TLSConfig) {
+func setTLSClientValidationContext(tlsClientValidation *egv1a1.ClientValidationContext, irTLSConfig *ir.TLSConfig, allowExpiredEnabled bool) {
 	if len(tlsClientValidation.SPKIHashes) > 0 {
 		irTLSConfig.VerifyCertificateSpki = append(irTLSConfig.VerifyCertificateSpki, tlsClientValidation.SPKIHashes...)
 	}
 	if len(tlsClientValidation.CertificateHashes) > 0 {
 		irTLSConfig.VerifyCertificateHash = append(irTLSConfig.VerifyCertificateHash, tlsClientValidation.CertificateHashes...)
+	}
+	if allowExpiredEnabled && tlsClientValidation.AllowExpiredCertificate != nil && *tlsClientValidation.AllowExpiredCertificate {
+		irTLSConfig.AllowExpiredCertificate = true
 	}
 	if tlsClientValidation.SubjectAltNames != nil {
 		for _, match := range tlsClientValidation.SubjectAltNames.DNSNames {
@@ -1362,4 +1381,12 @@ func clientTrafficPolicyCopiesWithStatusDeepCopy(policies []*egv1a1.ClientTraffi
 		copies[i] = &out
 	}
 	return copies
+}
+
+// allowExpiredCertificateRequested returns true if the policy sets allowExpiredCertificate to true.
+func allowExpiredCertificateRequested(policy *egv1a1.ClientTrafficPolicy) bool {
+	return policy.Spec.TLS != nil &&
+		policy.Spec.TLS.ClientValidation != nil &&
+		policy.Spec.TLS.ClientValidation.AllowExpiredCertificate != nil &&
+		*policy.Spec.TLS.ClientValidation.AllowExpiredCertificate
 }
